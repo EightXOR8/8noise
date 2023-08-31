@@ -1,5 +1,5 @@
-#ifndef EIGHTNOISE_H_
-#define EIGHTNOISE_H_
+#ifndef SRC_EIGHTNOISE_H_
+#define SRC_EIGHTNOISE_H_
 
 #include <iostream>
 
@@ -19,7 +19,7 @@ private:
 	long int seed;
 
 	unsigned int noiseLimiter; //Noise values are limited to 2^noiseMultiplier -1 (0 -> 2^0). The higher the value the more sway noise can have. Limited to [0, 31], but noise limit is always 2-2^31.
-	unsigned short int octaveCount; //How many octaves of noise you want stacked on top of eachother. Frequency increases by 2 each level, with amplitude decreasing by 2 as well. Limited to [1, 7]
+	unsigned short int octaveCount; //How many octaves of noise you want stacked on top of eachother. Frequency increases by *2 each level, with amplitude decreasing by 1/2. Limited to [1, 7]
 
 	value *ppixelMap;
 
@@ -36,9 +36,9 @@ public:
 
 //---------------------------Implementation starts------------------------------------------//
 
-int sign(int x) {
+long int sign(long int x) {
 	return ((x < 0) ? (-1) : (1));
-} 
+}
 
 template <typename value>
 EightNoise<value>::EightNoise
@@ -54,7 +54,7 @@ EightNoise<value>::EightNoise
 		ySideLength = (topLeftYCoord - bottomRightYCoord);
 
 		//The higher the noiseMultiplier the more noise effects the output. Limited to 31 to prevent overflow while also allowing significant noise influence.
-		this->octaveCount = (octaveCount) ? (octaveCount & 7) : (1); //make sure octaveCount is on range [1, 7] (lacunarity always two, not worth time changing I reckon)
+		this->octaveCount = (octaveCount) ? (octaveCount & 7) : (1); //make sure octaveCount is on range [1, 7] (lacunarity always two)
 		ppixelMap = new value[xSideLength * ySideLength];
 
 		this->fillPixelMap();
@@ -71,6 +71,8 @@ void EightNoise<value>::fillPixelMap() {
 	//determines how far the top left x and y coordinates stick out (up and to the left) from the nearest (specifically bottom right) vertex.
 	unsigned long int xPadding = pixelsPerChunk - ( (topLeftXCoord < 0) ? ((topLeftXCoord *(-1)) % pixelsPerChunk) : (topLeftXCoord % pixelsPerChunk) );
 	unsigned long int yPadding = pixelsPerChunk - ( (topLeftYCoord < 0) ? ((topLeftYCoord *(-1)) % pixelsPerChunk) : (topLeftYCoord % pixelsPerChunk) );
+
+	std::cout << "xPadding: " << xPadding << "\nyPadding: " << yPadding << std::endl;
 
 	struct vertex {
 		long int xComp;
@@ -91,8 +93,8 @@ void EightNoise<value>::fillPixelMap() {
 	vertex* vertices = new vertex[2 * vertexCount];
 
 	//initialize the first and second row
-	for (int i = 0; i < 2; ++i) {
-		for (unsigned int j = 0; j < vertexCount; ++j) {
+	for (unsigned long int i = 0; i < 2; ++i) {
+		for (unsigned long int j = 0; j < vertexCount; ++j) {
 			long int currentX = ((topLeftXCoord - xPadding) + (pixelsPerChunk *j));
 			long int currentY = (topLeftYCoord + yPadding) - (pixelsPerChunk *i);
 			(vertices + (i *vertexCount + j))->xComp = (seed *sign(currentX) *sign(currentY) + (currentX * (sign(currentY) * currentY)) ) % noiseLimiter;
@@ -102,7 +104,7 @@ void EightNoise<value>::fillPixelMap() {
 
 	//first two rows already initialized by default, thus rowCounter = 2.
 	unsigned long int rowCounter = 2;
-	char vertexIndex;
+	bool vertexIndex;
 
 	long int vertexX;
 	long int vertexY;
@@ -133,7 +135,7 @@ void EightNoise<value>::fillPixelMap() {
 			vertexIndex = rowCounter & 1;
 			vertexY = (topLeftYCoord + yPadding) - (pixelsPerChunk *(rowCounter));
 
-			for (unsigned int j = 0; j < vertexCount; ++j) {
+			for (unsigned long int j = 0; j < vertexCount; ++j) {
 				vertexX = ((topLeftXCoord - xPadding) + (pixelsPerChunk *j));
 				(vertices + (vertexIndex *vertexCount + j))->xComp = (seed *sign(vertexX) *sign(vertexY) + (vertexX * (sign(vertexY) * vertexY)) ) % noiseLimiter;
 				(vertices + (vertexIndex *vertexCount + j))->yComp = (seed *sign(vertexX) *sign(vertexY) + (vertexY * (sign(vertexX) * vertexX)) ) % noiseLimiter;
@@ -217,7 +219,7 @@ value EightNoise<value>::getPixelValue(long int topLeftPixelXCoord, long int top
 	value *ptarget = ppixelMap + ((topLeftYCoord - topLeftPixelYCoord) * pixelsPerChunk) + (topLeftPixelXCoord - topLeftXCoord);
 
 	if (ptarget > (ppixelMap + (xSideLength * ySideLength) -1) || ptarget < ppixelMap) {
-		std::cout << "Accessing out of bounds values" << std::endl;
+		return 0;
 	}
 
 	//adjust input coordinates to fit 1d array index
@@ -226,4 +228,7 @@ value EightNoise<value>::getPixelValue(long int topLeftPixelXCoord, long int top
 
 }
 
-#endif /* EIGHTNOISE_H_ */
+
+
+
+#endif /* SRC_EIGHTNOISE_H_ */
